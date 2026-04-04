@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { Send, Bot, User, Settings, FileText } from 'lucide-react';
 
 export default function Home() {
@@ -11,8 +12,22 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string>('');
   const [model, setModel] = useState('llama3');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
 
   useEffect(() => {
+    fetch('/api/models')
+      .then(res => res.json())
+      .then(data => {
+        if (data.models && data.models.length > 0) {
+          const names = data.models.map((m: { name: string }) => m.name);
+          setAvailableModels(names);
+          setModel(names[0]);
+        } else {
+          setAvailableModels(['llama3', 'mistral', 'phi3']);
+        }
+      })
+      .catch(() => setAvailableModels(['llama3', 'mistral', 'phi3']));
+
     fetch('/api/onboarding?agentId=default')
       .then(res => res.json())
       .then(data => {
@@ -25,13 +40,27 @@ export default function Home() {
       });
   }, []);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: '/api/chat',
-    body: {
-      sessionId,
-      model
-    }
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      body: {
+        sessionId,
+        model
+      }
+    })
   });
+
+  const [input, setInput] = useState('');
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value);
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() && !isLoading) {
+      sendMessage({ text: input });
+      setInput('');
+    }
+  };
 
   const completeOnboarding = async () => {
     setLoading(true);
@@ -55,7 +84,7 @@ export default function Home() {
             <Bot className="w-8 h-8 text-emerald-400" />
             <h1 className="text-2xl font-bold">Agent Onboarding</h1>
           </div>
-          <p className="text-gray-400 mb-6">Let's define the SOUL of your memory agent.</p>
+          <p className="text-gray-400 mb-6">Let&apos;s define the SOUL of your memory agent.</p>
           
           <div className="space-y-4">
             <div>
@@ -105,9 +134,17 @@ export default function Home() {
               onChange={e => setModel(e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none"
             >
-              <option value="llama3">Llama 3</option>
-              <option value="mistral">Mistral</option>
-              <option value="phi3">Phi-3</option>
+              {availableModels.length > 0 ? (
+                availableModels.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))
+              ) : (
+                <>
+                  <option value="llama3">Llama 3</option>
+                  <option value="mistral">Mistral</option>
+                  <option value="phi3">Phi-3</option>
+                </>
+              )}
             </select>
           </div>
           <div>
@@ -138,7 +175,7 @@ export default function Home() {
                 {m.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
               </div>
               <div className={`p-4 rounded-2xl max-w-[80%] whitespace-pre-wrap ${m.role === 'user' ? 'bg-indigo-900 border border-indigo-700 text-indigo-50' : 'bg-gray-800 border border-gray-700 text-gray-100'}`}>
-                {m.content}
+                {m.parts?.find(p => p.type === 'text')?.text || ''}
               </div>
             </div>
           ))}

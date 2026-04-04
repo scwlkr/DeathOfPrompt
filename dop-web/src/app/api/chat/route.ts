@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { message, sessionId, model } = await request.json();
+    const { messages, sessionId, model } = await request.json();
+    const lastMessage = messages?.[messages.length - 1];
+    const message = lastMessage?.content || lastMessage?.text;
+
     if (!message || !sessionId) {
       return NextResponse.json({ error: 'Missing requirements' }, { status: 400 });
     }
