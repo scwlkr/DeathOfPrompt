@@ -165,7 +165,7 @@ export default function Home() {
             />
             <button 
               type="submit" 
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input?.trim()}
               className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 rounded-xl flex items-center justify-center shadow-lg disabled:opacity-50"
             >
               <Send className="w-5 h-5" />

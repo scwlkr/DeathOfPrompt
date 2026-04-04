@@ -3,7 +3,7 @@
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
 const { spawn } = require('child_process');
-const open = require('open');
+
 const path = require('path');
 
 yargs(hideBin(process.argv))
@@ -22,7 +22,8 @@ yargs(hideBin(process.argv))
     setTimeout(async () => {
       console.log("Opening dashboard at http://localhost:3000 ...");
       try {
-        await open('http://localhost:3000');
+        const { default: openBrowser } = await import('open');
+        await openBrowser('http://localhost:3000');
       } catch(err) {
         console.error("Failed to open browser: ", err);
       }
