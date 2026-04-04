@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model ChatSession {
+  id        String            @id @default(uuid())
+  agentId   String // E.g. "default"
+  model     String // E.g. "llama3"
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  messages  TranscriptEntry[]
+}
+
+model TranscriptEntry {
+  id         String      @id @default(uuid())
+  sessionId  String
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role       String // "user", "assistant", "system"
+  content    String
+  searchTags String? // Comma-separated or JSON
+  createdAt  DateTime    @default(now())
+}
+
+model MemoryIndexEntry {
+  id         String   @id @default(uuid())
+  title      String
+  summary    String
+  tags       String? // Comma-separated for basic retrieval
+  sourcePath String // e.g. "data/memory/topics/my-topic.md"
+  freshness  DateTime @default(now())
+}
