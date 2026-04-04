@@ -5,7 +5,9 @@ export async function POST(request: Request) {
   try {
     const { messages, sessionId, model } = await request.json();
     const lastMessage = messages?.[messages.length - 1];
-    const message = lastMessage?.content || lastMessage?.text;
+    const message = lastMessage?.content || 
+                    lastMessage?.text || 
+                    lastMessage?.parts?.find((p: any) => p.type === 'text')?.text;
 
     if (!message || !sessionId) {
       return NextResponse.json({ error: 'Missing requirements' }, { status: 400 });

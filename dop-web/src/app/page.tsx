@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { Send, Bot, User, Settings, FileText } from 'lucide-react';
+import { Send, Bot, User, Settings, FileText, Terminal, X } from 'lucide-react';
 
 export default function Home() {
   const [onboarding, setOnboarding] = useState(true);
@@ -51,6 +51,25 @@ export default function Home() {
   });
 
   const [input, setInput] = useState('');
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState<any[]>([]);
+
+  const fetchLogs = async () => {
+    try {
+      const res = await fetch('/api/logs');
+      const data = await res.json();
+      setLogs(data.logs || []);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (showLogs) {
+      fetchLogs();
+      const interval = setInterval(fetchLogs, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [showLogs]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value);
   const isLoading = status === 'submitted' || status === 'streaming';
 
@@ -156,6 +175,14 @@ export default function Home() {
                Agent: default<br/>
                Context Injected: SOUL, Index
              </div>
+          </div>
+          <div className="pt-4 mt-4 border-t border-gray-800">
+            <button
+              onClick={() => setShowLogs(true)}
+              className="w-full flex items-center justify-center gap-2 p-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
+            >
+              <Terminal className="w-4 h-4" /> View System Logs
+            </button>
           </div>
         </div>
       </aside>
