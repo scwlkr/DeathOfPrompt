@@ -4,3 +4,61 @@
 {"timestamp":"2026-04-04T21:22:00.322Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"7ec7d47a-339b-476b-9caa-f40090e8608f","query":"hello","sliceCount":2}}
 {"timestamp":"2026-04-04T21:24:03.294Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"7ec7d47a-339b-476b-9caa-f40090e8608f","query":"what can you do?","sliceCount":2}}
 {"timestamp":"2026-04-04T21:32:42.681Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"7ec7d47a-339b-476b-9caa-f40090e8608f","query":"can you add a random cron job for me?","sliceCount":2}}
+{"timestamp":"2026-04-04T21:50:31.444Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3-56s8ue9e","query":"What is the speed of light?","sliceCount":2}}
+{"timestamp":"2026-04-04T21:50:31.473Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3b-54qrhcgv","query":"Hello","sliceCount":2}}
+{"timestamp":"2026-04-04T21:50:31.476Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4-gbz2jsih","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:50:31.478Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4b-gdhspirk","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:51:21.928Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-73rvbp","query":"unrelated query","sliceCount":1}}
+{"timestamp":"2026-04-04T21:51:21.933Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-73rvbp","query":"hi","sliceCount":2}}
+{"timestamp":"2026-04-04T21:51:21.934Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-73rvbp","query":"tell me about light","sliceCount":2}}
+{"timestamp":"2026-04-04T21:51:21.935Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-73rvbp","query":"recipe for pasta","sliceCount":1}}
+{"timestamp":"2026-04-04T21:51:21.936Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-73rvbp","query":"anything","sliceCount":0}}
+{"timestamp":"2026-04-04T21:52:00.059Z","level":"INFO","event":"transcripts_searched","data":{"q":"zzqxgzzoy1","hits":3}}
+{"timestamp":"2026-04-04T21:52:00.063Z","level":"INFO","event":"transcripts_searched","data":{"q":"zzqxgzzoy1","sessionId":"test-trx-a-9ojyq7","hits":2}}
+{"timestamp":"2026-04-04T21:52:00.064Z","level":"INFO","event":"transcripts_searched","data":{"q":"zzqxgzzoy1","hits":1}}
+{"timestamp":"2026-04-04T21:52:00.064Z","level":"INFO","event":"transcripts_searched","data":{"q":"nomatch-zzqxgzzoy1xxx","hits":0}}
+{"timestamp":"2026-04-04T21:54:15.026Z","level":"INFO","event":"task_appended_manual","data":{"task":"test-marker-btvt90 api task"}}
+{"timestamp":"2026-04-04T21:54:25.970Z","level":"INFO","event":"task_appended_manual","data":{"task":"test-marker-23ycuz api task"}}
+{"timestamp":"2026-04-04T21:54:29.567Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3-prhy2yef","query":"What is the speed of light?","sliceCount":2}}
+{"timestamp":"2026-04-04T21:54:29.600Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3b-hs8zxyaz","query":"Hello","sliceCount":2}}
+{"timestamp":"2026-04-04T21:54:29.603Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4-vdc4788k","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:54:29.606Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4b-06n8n0dm","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:55:08.087Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3-i869hrad","query":"What is the speed of light?","sliceCount":2}}
+{"timestamp":"2026-04-04T21:55:08.103Z","level":"INFO","event":"task_appended_manual","data":{"task":"test-marker-cqr5fb api task"}}
+{"timestamp":"2026-04-04T21:55:08.120Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3b-7vpjj8fz","query":"Hello","sliceCount":2}}
+{"timestamp":"2026-04-04T21:55:08.123Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4-lpga3k5t","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:55:08.126Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f13-mo1rcghl","query":"remind me to call the vet","sliceCount":2}}
+{"timestamp":"2026-04-04T21:55:08.126Z","level":"INFO","event":"task_appended","data":{"sessionId":"test-f13-mo1rcghl","task":"chat-task-qpvv1b call the vet"}}
+{"timestamp":"2026-04-04T21:55:08.129Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f14-emqv5i6s","query":"date next week — remind me day before to book","sliceCount":2}}
+{"timestamp":"2026-04-04T21:55:08.129Z","level":"INFO","event":"task_appended","data":{"sessionId":"test-f14-emqv5i6s","task":"sched-8yrct9 book dinner |when:2026-04-11T18:00:00Z"}}
+{"timestamp":"2026-04-04T21:55:08.131Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4b-uoelngul","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:13.759Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3-9nj20nnk","query":"What is the speed of light?","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:13.790Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3b-8ftl1i8l","query":"Hello","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:13.793Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4-v3rniy1m","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:13.796Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f13-whhh45u7","query":"remind me to call the vet","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:13.796Z","level":"INFO","event":"task_appended","data":{"sessionId":"test-f13-whhh45u7","task":"chat-task-01xst5 call the vet"}}
+{"timestamp":"2026-04-04T21:56:13.798Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f14-huve7751","query":"date next week — remind me day before to book","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:13.799Z","level":"INFO","event":"task_appended","data":{"sessionId":"test-f14-huve7751","task":"sched-s1nksy book dinner |when:2026-04-11T18:00:00Z"}}
+{"timestamp":"2026-04-04T21:56:13.801Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f15-t3wggtqf","query":"write a business plan","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:13.801Z","level":"INFO","event":"workspace_file_saved","data":{"sessionId":"test-f15-t3wggtqf","name":"plan-5tqa2x.md","path":"/Users/shanewalker/Desktop/dev/DeathOfPrompt/dop-web/data/workspace/plan-5tqa2x.md"}}
+{"timestamp":"2026-04-04T21:56:13.804Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4b-1pdfht8a","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:58.937Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-2lhp9w","query":"unrelated query","sliceCount":1}}
+{"timestamp":"2026-04-04T21:56:58.945Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-2lhp9w","query":"hi","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:58.954Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-2lhp9w","query":"tell me about light","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:58.956Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-2lhp9w","query":"recipe for pasta","sliceCount":1}}
+{"timestamp":"2026-04-04T21:56:58.957Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-sess-2lhp9w","query":"anything","sliceCount":0}}
+{"timestamp":"2026-04-04T21:56:58.968Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3-gnx6jzsa","query":"What is the speed of light?","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:58.974Z","level":"INFO","event":"transcripts_searched","data":{"q":"zzqxu7cwxq","hits":3}}
+{"timestamp":"2026-04-04T21:56:58.976Z","level":"INFO","event":"task_appended_manual","data":{"task":"test-marker-0whrfx api task"}}
+{"timestamp":"2026-04-04T21:56:58.977Z","level":"INFO","event":"transcripts_searched","data":{"q":"zzqxu7cwxq","sessionId":"test-trx-a-u4vawe","hits":2}}
+{"timestamp":"2026-04-04T21:56:58.978Z","level":"INFO","event":"transcripts_searched","data":{"q":"zzqxu7cwxq","hits":1}}
+{"timestamp":"2026-04-04T21:56:58.979Z","level":"INFO","event":"transcripts_searched","data":{"q":"nomatch-zzqxu7cwxqxxx","hits":0}}
+{"timestamp":"2026-04-04T21:56:59.001Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f3b-au0jsi5a","query":"Hello","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:59.004Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4-td7m51ff","query":"hey","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:59.007Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f13-ej7xor0h","query":"remind me to call the vet","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:59.007Z","level":"INFO","event":"task_appended","data":{"sessionId":"test-f13-ej7xor0h","task":"chat-task-vfut48 call the vet"}}
+{"timestamp":"2026-04-04T21:56:59.010Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f14-42jn7tri","query":"date next week — remind me day before to book","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:59.010Z","level":"INFO","event":"task_appended","data":{"sessionId":"test-f14-42jn7tri","task":"sched-6gmetv book dinner |when:2026-04-11T18:00:00Z"}}
+{"timestamp":"2026-04-04T21:56:59.013Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f15-vneg0xq9","query":"write a business plan","sliceCount":2}}
+{"timestamp":"2026-04-04T21:56:59.014Z","level":"INFO","event":"workspace_file_saved","data":{"sessionId":"test-f15-vneg0xq9","name":"plan-cqpslp.md","path":"/Users/shanewalker/Desktop/dev/DeathOfPrompt/dop-web/data/workspace/plan-cqpslp.md"}}
+{"timestamp":"2026-04-04T21:56:59.016Z","level":"INFO","event":"context_retrieved","data":{"sessionId":"test-f4b-yegtyqqc","query":"hey","sliceCount":2}}

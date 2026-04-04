@@ -6,7 +6,10 @@ export async function POST(request: Request) {
   try {
     const { agentId, persona, goals, style } = await request.json();
     if (!agentId || !persona || !goals) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing fields', code: 'ONBOARDING_MISSING_FIELDS' },
+        { status: 400 }
+      );
     }
 
     const agentDir = path.join(process.cwd(), 'data', 'agents', agentId);
@@ -29,7 +32,10 @@ ${style || 'Helpful and concise'}
     fs.writeFileSync(path.join(agentDir, 'SOUL.md'), soulContent);
     return NextResponse.json({ success: true, agentId });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message, code: 'ONBOARDING_FAILED' },
+      { status: 500 }
+    );
   }
 }
 

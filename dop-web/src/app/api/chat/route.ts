@@ -19,12 +19,18 @@ export async function POST(request: Request) {
 
     if (!message || !sessionId) {
       console.error("Missing requirements check failed. Message:", message, "SessionId:", sessionId);
-      return NextResponse.json({ error: 'Missing requirements' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing requirements', code: 'CHAT_MISSING_FIELDS' },
+        { status: 400 }
+      );
     }
 
     return await processChat(sessionId, message, model);
   } catch (err: any) {
     console.error("Chat API Error:", err);
-    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Internal server error', code: 'CHAT_FAILED' },
+      { status: 500 }
+    );
   }
 }
