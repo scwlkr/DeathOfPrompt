@@ -65,6 +65,43 @@ export function appendTask(task: string): void {
   writeAmbition(content);
 }
 
+// Flip the checkbox on the first task whose raw body matches.
+// Returns true if a task was updated.
+export function toggleTaskDone(raw: string, done: boolean): boolean {
+  const target = raw.trim();
+  const lines = readAmbition().split('\n');
+  let hit = false;
+  const next = lines.map((line) => {
+    if (hit) return line;
+    const m = line.match(TASK_LINE);
+    if (!m) return line;
+    if (m[2].trim() !== target) return line;
+    hit = true;
+    const box = done ? 'x' : ' ';
+    return line.replace(TASK_LINE, `- [${box}] ${m[2]}`);
+  });
+  if (hit) writeAmbition(next.join('\n'));
+  return hit;
+}
+
+// Remove the first task line whose raw body matches.
+// Returns true if a task was removed.
+export function deleteTask(raw: string): boolean {
+  const target = raw.trim();
+  const lines = readAmbition().split('\n');
+  let hit = false;
+  const next = lines.filter((line) => {
+    if (hit) return true;
+    const m = line.match(TASK_LINE);
+    if (!m) return true;
+    if (m[2].trim() !== target) return true;
+    hit = true;
+    return false;
+  });
+  if (hit) writeAmbition(next.join('\n'));
+  return hit;
+}
+
 // Find [[TASK: <text>]] markers in an LLM reply and return the inner strings.
 // Optional "|when:" / "|recur:" suffixes are preserved.
 export function parseTasksFromReply(reply: string): string[] {

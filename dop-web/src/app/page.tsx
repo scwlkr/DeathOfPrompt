@@ -3,7 +3,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { Send, Bot, User, Settings, FileText, Terminal, X } from 'lucide-react';
+import { Send, Bot, User, Settings, FileText, Terminal, X, Clock, Trash2, Plus } from 'lucide-react';
+
+type AmbitionTask = {
+  text: string;
+  done: boolean;
+  whenISO?: string;
+  recur?: string;
+  raw: string;
+};
 
 export default function Home() {
   const [onboarding, setOnboarding] = useState(true);
@@ -55,6 +63,59 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
+  const [showTasks, setShowTasks] = useState(false);
+  const [tasks, setTasks] = useState<AmbitionTask[]>([]);
+  const [tasksFilter, setTasksFilter] = useState<'scheduled' | 'all'>('scheduled');
+  const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskWhen, setNewTaskWhen] = useState('');
+  const [newTaskRecur, setNewTaskRecur] = useState('');
+
+  const fetchTasks = async () => {
+    try {
+      const res = await fetch('/api/ambition');
+      const data = await res.json();
+      setTasks(data.tasks || []);
+    } catch {}
+  };
+
+  const toggleTask = async (raw: string, done: boolean) => {
+    await fetch('/api/ambition', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw, done }),
+    });
+    fetchTasks();
+  };
+
+  const removeTask = async (raw: string) => {
+    await fetch('/api/ambition', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw }),
+    });
+    fetchTasks();
+  };
+
+  const addTask = async () => {
+    const text = newTaskText.trim();
+    if (!text) return;
+    let body = text;
+    if (newTaskWhen.trim()) {
+      // datetime-local value like "2026-04-10T09:00" -> ISO
+      const iso = new Date(newTaskWhen).toISOString();
+      body += ` |when:${iso}`;
+    }
+    if (newTaskRecur.trim()) body += ` |recur:${newTaskRecur.trim()}`;
+    await fetch('/api/ambition', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task: body }),
+    });
+    setNewTaskText('');
+    setNewTaskWhen('');
+    setNewTaskRecur('');
+    fetchTasks();
+  };
 
   const fetchLogs = async () => {
     try {
@@ -71,6 +132,10 @@ export default function Home() {
       return () => clearInterval(interval);
     }
   }, [showLogs]);
+
+  useEffect(() => {
+    if (showTasks) fetchTasks();
+  }, [showTasks]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value);
   const isLoading = status === 'submitted' || status === 'streaming';
@@ -178,7 +243,13 @@ export default function Home() {
                Context Injected: SOUL, Index
              </div>
           </div>
-          <div className="pt-4 mt-4 border-t border-gray-800">
+          <div className="pt-4 mt-4 border-t border-gray-800 space-y-2">
+            <button
+              onClick={() => setShowTasks(true)}
+              className="w-full flex items-center justify-center gap-2 p-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
+            >
+              <Clock className="w-4 h-4" /> Scheduled Tasks
+            </button>
             <button
               onClick={() => setShowLogs(true)}
               className="w-full flex items-center justify-center gap-2 p-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
@@ -261,6 +332,142 @@ export default function Home() {
                 </div>
               ))}
               {logs.length === 0 && <div className="text-gray-500 text-center py-8">No logs available for today</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTasks && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-emerald-400" />
+                <h2 className="font-semibold text-white">Scheduled Tasks</h2>
+                <span className="text-xs text-gray-500 ml-2">from AMBITION.md</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex rounded-lg bg-gray-800 border border-gray-700 text-xs">
+                  <button
+                    onClick={() => setTasksFilter('scheduled')}
+                    className={`px-3 py-1 rounded-lg ${tasksFilter === 'scheduled' ? 'bg-emerald-600 text-white' : 'text-gray-400'}`}
+                  >
+                    Scheduled
+                  </button>
+                  <button
+                    onClick={() => setTasksFilter('all')}
+                    className={`px-3 py-1 rounded-lg ${tasksFilter === 'all' ? 'bg-emerald-600 text-white' : 'text-gray-400'}`}
+                  >
+                    All
+                  </button>
+                </div>
+                <button onClick={() => setShowTasks(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {(() => {
+                const visible = tasksFilter === 'scheduled'
+                  ? tasks.filter(t => t.whenISO || t.recur)
+                  : tasks;
+                if (visible.length === 0) {
+                  return <div className="text-gray-500 text-center py-8 text-sm">
+                    {tasksFilter === 'scheduled' ? 'No scheduled tasks yet.' : 'No tasks yet.'}
+                  </div>;
+                }
+                return visible.map((t, i) => {
+                  const isScheduled = !!(t.whenISO || t.recur);
+                  const fireTime = t.whenISO ? new Date(t.whenISO) : null;
+                  const fireMs = fireTime ? fireTime.getTime() : 0;
+                  const nowMs = Date.now();
+                  const overdue = fireTime && !t.done && fireMs < nowMs;
+                  return (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-lg border flex items-start gap-3 ${
+                        t.done ? 'bg-gray-800/30 border-gray-800 opacity-60' :
+                        overdue ? 'bg-amber-900/20 border-amber-800/50' :
+                        isScheduled ? 'bg-emerald-900/10 border-emerald-800/40' :
+                        'bg-gray-800/50 border-gray-800'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={t.done}
+                        onChange={(e) => toggleTask(t.raw, e.target.checked)}
+                        className="mt-1 w-4 h-4 accent-emerald-500 cursor-pointer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm ${t.done ? 'line-through text-gray-500' : 'text-gray-100'}`}>
+                          {t.text}
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-1 text-xs">
+                          {t.whenISO && (
+                            <span className={`px-2 py-0.5 rounded ${overdue && !t.done ? 'bg-amber-800/40 text-amber-300' : 'bg-emerald-800/40 text-emerald-300'}`}>
+                              {overdue && !t.done ? 'overdue · ' : 'fires · '}
+                              {fireTime!.toLocaleString()}
+                            </span>
+                          )}
+                          {t.recur && (
+                            <span className="px-2 py-0.5 rounded bg-indigo-800/40 text-indigo-300">
+                              recur · {t.recur}
+                            </span>
+                          )}
+                          {!isScheduled && (
+                            <span className="px-2 py-0.5 rounded bg-gray-700/50 text-gray-400">
+                              unscheduled
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeTask(t.raw)}
+                        className="text-gray-500 hover:text-red-400 shrink-0"
+                        title="Delete task"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            <div className="p-4 border-t border-gray-800 bg-gray-950/50 space-y-2">
+              <div className="text-xs text-gray-500 flex items-center gap-2">
+                <Plus className="w-3 h-3" /> Add a new task
+              </div>
+              <input
+                type="text"
+                value={newTaskText}
+                onChange={(e) => setNewTaskText(e.target.value)}
+                placeholder="Task description..."
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="datetime-local"
+                  value={newTaskWhen}
+                  onChange={(e) => setNewTaskWhen(e.target.value)}
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-2 text-sm text-white outline-none"
+                />
+                <input
+                  type="text"
+                  value={newTaskRecur}
+                  onChange={(e) => setNewTaskRecur(e.target.value)}
+                  placeholder="recur (e.g. daily@09:00)"
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-2 text-sm text-white outline-none"
+                />
+                <button
+                  onClick={addTask}
+                  disabled={!newTaskText.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white px-4 rounded-lg text-sm font-medium"
+                >
+                  Add
+                </button>
+              </div>
             </div>
           </div>
         </div>
