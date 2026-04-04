@@ -49,7 +49,7 @@ Respond to the user naturally based on your SOUL profile and retrieved context.`
     }
   });
 
-  return stream.toTextStreamResponse();
+  return stream.toUIMessageStreamResponse();
 }
 
 export async function createSession(agentId: string, model: string) {
