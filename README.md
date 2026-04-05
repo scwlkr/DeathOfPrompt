@@ -192,8 +192,9 @@ Open a chat with your bot and send `/pair <code>`. That adds your chat to the al
 | `/heartbeat` | Force a heartbeat tick now and show the result |
 | `/model` | List installed Ollama models (✓ marks current) |
 | `/model <n\|name>` | Switch this chat to a different model (persists across restarts) |
-| `/pod status` | Show per-process alive/dead state of the pod |
-| `/pod stop` | Tear down the whole pod remotely (kills this daemon too — needs the keeper to restart) |
+| `/podStatus` | Show per-process alive/dead state of the pod |
+| `/podStop` | Tear down the whole pod remotely (kills this daemon too — needs the keeper to restart) |
+| `/podStart` | (hint only — see the keeper; can't start the pod from inside it) |
 | *(any other text)* | Converse with the agent |
 
 Per-chat model selections are stored in `dop-web/data/.telegram-models.json`. The default model comes from `DOP_MODEL` in `.env`.
@@ -215,11 +216,13 @@ On startup it prints its own 6-digit pairing code (separate from the daemon's) a
 
 | Command | Action |
 |---|---|
-| `/keep-pair <code>` | Pair this chat with the keeper (only command unpaired chats can use) |
-| `/keep-unpair` | Disconnect this chat from the keeper |
-| `/pod-start` | Run `dop pod` detached — brings the pod back up |
-| `/pod-stop` | Run `dop pod stop` — tears the pod down |
-| `/pod-status` | Run `dop pod status` — shows alive/dead state |
+| `/keepPair <code>` | Pair this chat with the keeper (only command unpaired chats can use) |
+| `/keepUnpair` | Disconnect this chat from the keeper |
+| `/podStart` | Run `dop pod` detached — brings the pod back up |
+| `/podStop` | Run `dop pod stop` — tears the pod down |
+| `/podStatus` | Run `dop pod status` — shows alive/dead state |
+
+> **Why camelCase?** Telegram commands only accept `[A-Za-z0-9_]` and stop at the first whitespace or dash, so `/pod-start` gets parsed as `/pod` and loses the rest. camelCase keeps each command as a single token.
 
 > ⚠️ **Shared bot token:** the keeper and the daemon poll the same `TELEGRAM_TOKEN`. When the pod is up, route pod commands through the daemon's `/pod` command; when the pod is down, the keeper has the token to itself. For dual-up operation, give the keeper a separate bot token.
 

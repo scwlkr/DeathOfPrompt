@@ -5,11 +5,14 @@
 // survives `dop pod stop` and can bring the pod back up on command.
 //
 // Commands (paired chats only):
-//   /keep-pair <code>   — pair this chat
-//   /pod-start          — `dop pod` (detached)
-//   /pod-stop           — `dop pod stop`
-//   /pod-status         — `dop pod status`
-//   /keep-unpair        — disconnect this chat
+//   /keepPair <code>    — pair this chat
+//   /keepUnpair         — disconnect this chat
+//   /podStart           — `dop pod` (detached)
+//   /podStop            — `dop pod stop`
+//   /podStatus          — `dop pod status`
+//
+// Telegram commands stop at whitespace/dashes so camelCase is mandatory —
+// `/keep-pair` gets parsed as `/keep` and loses the argument.
 //
 // The keeper has its own pairing code and allowlist, separate from the
 // daemon's. State lives in dop-web/data/.keeper-*.
@@ -70,7 +73,7 @@ const PAIRING_CODE = loadOrCreateCode();
 
 console.log('🛡️  DOP Keeper starting.');
 console.log('   Pairing code: ' + PAIRING_CODE);
-console.log('   In Telegram: /keep-pair ' + PAIRING_CODE);
+console.log('   In Telegram: /keepPair ' + PAIRING_CODE);
 console.log('   Paired chats: ' + (allowlist.size || 'none yet'));
 
 // IMPORTANT: keeper uses getUpdates with a separate offset. When the main
@@ -82,21 +85,21 @@ console.log('   Paired chats: ' + (allowlist.size || 'none yet'));
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 const isPaired = (id) => allowlist.has(id);
-const needPair = (id) => bot.sendMessage(id, '🔒 Send `/keep-pair <code>` — see the keeper console.', { parse_mode: 'Markdown' });
+const needPair = (id) => bot.sendMessage(id, '🔒 Send `/keepPair <code>` — see the keeper console.', { parse_mode: 'Markdown' });
 
-bot.onText(/^\/keep-pair\s+(\S+)/, (msg, m) => {
+bot.onText(/^\/keepPair\s+(\S+)/i, (msg, m) => {
   const id = msg.chat.id;
   if (m[1].trim() === PAIRING_CODE) {
     allowlist.add(id);
     saveAllowlist(allowlist);
-    bot.sendMessage(id, '✅ Keeper paired.\n\nCommands:\n/pod-start\n/pod-stop\n/pod-status\n/keep-unpair');
+    bot.sendMessage(id, '✅ Keeper paired.\n\nCommands:\n/podStart\n/podStop\n/podStatus\n/keepUnpair');
     console.log(`✅ keeper paired chat ${id}`);
   } else {
     bot.sendMessage(id, '❌ Invalid pairing code.');
   }
 });
 
-bot.onText(/^\/keep-unpair\b/, (msg) => {
+bot.onText(/^\/keepUnpair\b/i, (msg) => {
   const id = msg.chat.id;
   if (allowlist.delete(id)) {
     saveAllowlist(allowlist);
@@ -112,7 +115,7 @@ function runDop(args, onDone) {
   });
 }
 
-bot.onText(/^\/pod-start\b/, (msg) => {
+bot.onText(/^\/podStart\b/i, (msg) => {
   const id = msg.chat.id;
   if (!isPaired(id)) return needPair(id);
   bot.sendMessage(id, '🚀 Starting pod...');
@@ -131,7 +134,7 @@ bot.onText(/^\/pod-start\b/, (msg) => {
   }, 3000);
 });
 
-bot.onText(/^\/pod-stop\b/, (msg) => {
+bot.onText(/^\/podStop\b/i, (msg) => {
   const id = msg.chat.id;
   if (!isPaired(id)) return needPair(id);
   bot.sendMessage(id, '🛑 Stopping pod...');
@@ -140,7 +143,7 @@ bot.onText(/^\/pod-stop\b/, (msg) => {
   );
 });
 
-bot.onText(/^\/pod-status\b/, (msg) => {
+bot.onText(/^\/podStatus\b/i, (msg) => {
   const id = msg.chat.id;
   if (!isPaired(id)) return needPair(id);
   runDop(['pod', 'status'], (out) =>

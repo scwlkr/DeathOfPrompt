@@ -98,8 +98,9 @@ Owns two cron workers:
 | `/status` | prints AMBITION.md | markdown-fenced |
 | `/heartbeat` | forces `runHeartbeat()` | shows NOTIFY/TASK/REFLECT tokens |
 | `/model` / `/model <n\|name>` | list or switch Ollama model | persists in `.telegram-models.json` |
-| `/pod status` | spawns `dop pod status` | returns per-process state |
-| `/pod stop` | spawns detached `dop pod stop` | kills this daemon — requires keeper to restart |
+| `/podStatus` | spawns `dop pod status` | returns per-process state |
+| `/podStop` | spawns detached `dop pod stop` | kills this daemon — requires keeper to restart |
+| `/podStart` | hint only | points at the keeper; can't start the pod from inside it |
 
 ### Keeper (`bin/keeper.js`)
 
@@ -107,11 +108,13 @@ Standalone Telegram bot that runs **outside** the pod, so it survives `dop pod s
 
 | Command | Action |
 |---|---|
-| `/keep-pair <code>` | pair this chat with the keeper |
-| `/keep-unpair` | disconnect from the keeper |
-| `/pod-start` | spawns `node bin/dop.js pod` detached |
-| `/pod-stop` | runs `dop pod stop` |
-| `/pod-status` | runs `dop pod status` |
+| `/keepPair <code>` | pair this chat with the keeper |
+| `/keepUnpair` | disconnect from the keeper |
+| `/podStart` | spawns `node bin/dop.js pod` detached |
+| `/podStop` | runs `dop pod stop` |
+| `/podStatus` | runs `dop pod status` |
+
+Telegram commands only accept `[A-Za-z0-9_]` and terminate at whitespace or dashes — hence camelCase. `/pod-start` would be parsed as `/pod` with `-start` discarded. All regexes use the `/i` flag so `/podstop` also matches.
 
 **Token collision caveat:** keeper and daemon share one `TELEGRAM_TOKEN` and both use `polling: true`. When both are up, Telegram round-robins `getUpdates` between them. The intended deployment is: pod up → route commands through daemon's `/pod`; pod down → keeper has the token to itself naturally. For simultaneous operation, give the keeper its own bot token.
 

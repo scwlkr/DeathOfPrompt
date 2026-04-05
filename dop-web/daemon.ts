@@ -137,7 +137,7 @@ if (TELEGRAM_TOKEN) {
       saveChatId(chatId);
       bot?.sendMessage(
         chatId,
-        '✅ *Paired.* Death of Prompt is now listening to this chat.\n\nCommands:\n/status — show current ambitions\n/heartbeat — force a heartbeat tick\n/model — list or switch the Ollama model\n/pod — stop or status the pod\n/unpair — disconnect this chat',
+        '✅ *Paired.* Death of Prompt is now listening to this chat.\n\nCommands:\n/status — show current ambitions\n/heartbeat — force a heartbeat tick\n/model — list or switch the Ollama model\n/podStop — tear down the pod (this daemon included)\n/podStatus — pod process status\n/unpair — disconnect this chat',
         { parse_mode: 'Markdown' }
       );
       console.log(`✅ Paired new chat id=${chatId} (total paired: ${allowlist.size})`);
@@ -217,7 +217,7 @@ if (TELEGRAM_TOKEN) {
     saveChatId(chatId);
     bot?.sendMessage(
       chatId,
-      '💀 *Death of Prompt* is listening.\n\nYou are subscribed to proactive alerts.\n\nCommands:\n/status — show current ambitions & last heartbeat\n/heartbeat — force a heartbeat tick now\n/model — list or switch the Ollama model\n/pod — stop or status the pod\n/unpair — disconnect this chat',
+      '💀 *Death of Prompt* is listening.\n\nYou are subscribed to proactive alerts.\n\nCommands:\n/status — show current ambitions & last heartbeat\n/heartbeat — force a heartbeat tick now\n/model — list or switch the Ollama model\n/podStop — tear down the pod (this daemon included)\n/podStatus — pod process status\n/unpair — disconnect this chat',
       { parse_mode: 'Markdown' }
     );
   });
@@ -244,52 +244,50 @@ if (TELEGRAM_TOKEN) {
     bot?.sendMessage(msg.chat.id, summary || '(empty)');
   });
 
-  // /pod stop|status — let a paired user tear down the whole DOP pod (which
-  // includes this daemon itself) from Telegram. `dop pod stop` is spawned
-  // detached and the daemon exits so SIGTERM can reach it cleanly.
-  // /pod start cannot be handled here — if the pod is down, so is this
-  // daemon. Start requires the separate `dop keeper` supervisor.
-  bot.onText(/^\/pod(?:\s+(\S+))?/, (msg, match) => {
+  // /podStop + /podStatus + /podStart — Telegram commands can only contain
+  // [A-Za-z0-9_] and stop at whitespace/dashes, so camelCase is required
+  // (space-separated subcommands like `/pod stop` silently lose the arg).
+  // /podStop tears the pod down (this daemon included) and spawns the stop
+  // command detached so it outlives our process group. /podStart can't work
+  // from inside the pod — it's a hint pointing users at the keeper.
+  const repoRoot = path.resolve(process.cwd(), '..');
+  const podBin = path.join(repoRoot, 'bin', 'dop.js');
+
+  bot.onText(/^\/podStop\b/i, (msg) => {
     if (!isPaired(msg.chat.id)) return sendPairingPrompt(msg.chat.id);
-    const action = (match?.[1] || 'status').toLowerCase();
-    const repoRoot = path.resolve(process.cwd(), '..');
-    const podBin = path.join(repoRoot, 'bin', 'dop.js');
-    if (action === 'stop') {
-      bot?.sendMessage(
-        msg.chat.id,
-        '🛑 Tearing down DOP pod (this daemon included). Use `dop keeper` from a separate process to start it again.',
-        { parse_mode: 'Markdown' }
-      );
-      // Spawn detached so the child outlives us when `dop pod stop` SIGTERMs
-      // this process's group.
-      const child = spawn('node', [podBin, 'pod', 'stop'], {
-        cwd: repoRoot,
-        detached: true,
-        stdio: 'ignore',
+    bot?.sendMessage(
+      msg.chat.id,
+      '🛑 Tearing down DOP pod (this daemon included). Use `dop keeper` from a separate process to start it again.',
+      { parse_mode: 'Markdown' }
+    );
+    const child = spawn('node', [podBin, 'pod', 'stop'], {
+      cwd: repoRoot,
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+  });
+
+  bot.onText(/^\/podStatus\b/i, (msg) => {
+    if (!isPaired(msg.chat.id)) return sendPairingPrompt(msg.chat.id);
+    const child = spawn('node', [podBin, 'pod', 'status'], { cwd: repoRoot });
+    let out = '';
+    child.stdout.on('data', (d) => (out += d.toString()));
+    child.stderr.on('data', (d) => (out += d.toString()));
+    child.on('close', () => {
+      bot?.sendMessage(msg.chat.id, '```\n' + (out || '(no output)') + '\n```', {
+        parse_mode: 'Markdown',
       });
-      child.unref();
-      return;
-    }
-    if (action === 'status') {
-      const child = spawn('node', [podBin, 'pod', 'status'], { cwd: repoRoot });
-      let out = '';
-      child.stdout.on('data', (d) => (out += d.toString()));
-      child.stderr.on('data', (d) => (out += d.toString()));
-      child.on('close', () => {
-        bot?.sendMessage(msg.chat.id, '```\n' + (out || '(no output)') + '\n```', {
-          parse_mode: 'Markdown',
-        });
-      });
-      return;
-    }
-    if (action === 'start') {
-      bot?.sendMessage(
-        msg.chat.id,
-        '⚠️ Can\'t start the pod from inside the pod. Run `dop keeper` as a separate always-on process and use its `/pod-start` command.'
-      );
-      return;
-    }
-    bot?.sendMessage(msg.chat.id, 'Usage: `/pod stop` | `/pod status`', { parse_mode: 'Markdown' });
+    });
+  });
+
+  bot.onText(/^\/podStart\b/i, (msg) => {
+    if (!isPaired(msg.chat.id)) return sendPairingPrompt(msg.chat.id);
+    bot?.sendMessage(
+      msg.chat.id,
+      "⚠️ Can't start the pod from inside the pod. Run `dop keeper` as a separate always-on process and use its `/podStart` command.",
+      { parse_mode: 'Markdown' }
+    );
   });
 
   bot.on('message', async (msg) => {
