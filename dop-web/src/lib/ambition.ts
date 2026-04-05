@@ -1,9 +1,17 @@
 import fs from 'fs';
 import path from 'path';
+import { AMBITION_PATH as CANONICAL_AMBITION_PATH, LEGACY_AMBITION_PATH } from './paths';
 
-// AMBITION.md lives at the repo root so both the web app and the Telegram daemon
-// read/write the same file.
-export const AMBITION_PATH = path.join(process.cwd(), '..', 'AMBITION.md');
+// AMBITION.md lives under dop-web/data/ (gitignored) so contributors can clone
+// without inheriting the owner's tasks. If only the legacy repo-root file
+// exists (pre-migration owner), fall through to it transparently.
+export const AMBITION_PATH = CANONICAL_AMBITION_PATH;
+
+function resolveReadPath(): string {
+  if (fs.existsSync(CANONICAL_AMBITION_PATH)) return CANONICAL_AMBITION_PATH;
+  if (fs.existsSync(LEGACY_AMBITION_PATH)) return LEGACY_AMBITION_PATH;
+  return CANONICAL_AMBITION_PATH;
+}
 
 export type AmbitionTask = {
   text: string;
@@ -17,14 +25,17 @@ const TASK_LINE = /^-\s\[( |x|X)\]\s+(.+)$/;
 
 export function readAmbition(): string {
   try {
-    return fs.readFileSync(AMBITION_PATH, 'utf-8');
+    return fs.readFileSync(resolveReadPath(), 'utf-8');
   } catch {
     return '';
   }
 }
 
 export function writeAmbition(content: string): void {
-  fs.writeFileSync(AMBITION_PATH, content);
+  // Always write to the canonical (data/) location. If a legacy file exists,
+  // new writes still go to data/ — bootstrap/migration should move it over.
+  fs.mkdirSync(path.dirname(CANONICAL_AMBITION_PATH), { recursive: true });
+  fs.writeFileSync(CANONICAL_AMBITION_PATH, content);
 }
 
 export function listTasks(): AmbitionTask[] {

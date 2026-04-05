@@ -7,15 +7,22 @@ import path from 'path';
 import ollama from 'ollama';
 import { processChatSync } from './dop-engine';
 import { readAmbition, dueTasks, appendTask } from './ambition';
+import {
+  DEFAULT_AGENT_ID,
+  DEFAULT_SOUL_PATH as SOUL_PATH,
+  RESTLESS_LOG_PATH,
+  LEGACY_RESTLESS_PATH,
+} from './paths';
 
-// Canonical paths — SOUL lives inside dop-web/data/ (the web path's store),
-// so the Telegram agent reads the SAME persona the onboarding flow wrote.
-// RESTLESS stays at the repo root; it's the daemon's private heartbeat log.
-const WEB_ROOT = process.cwd(); // dop-web/ when the daemon is launched from there
-const REPO_ROOT = path.join(WEB_ROOT, '..');
-const DEFAULT_AGENT_ID = 'default';
-const SOUL_PATH = path.join(WEB_ROOT, 'data', 'agents', DEFAULT_AGENT_ID, 'SOUL.md');
-const RESTLESS_PATH = path.join(REPO_ROOT, 'RESTLESS.md');
+// Heartbeat log lives under dop-web/data/ (gitignored). If only the legacy
+// repo-root RESTLESS.md exists (pre-migration owner), read from it but always
+// write to the canonical path.
+const RESTLESS_PATH = fs.existsSync(RESTLESS_LOG_PATH)
+  ? RESTLESS_LOG_PATH
+  : fs.existsSync(LEGACY_RESTLESS_PATH)
+    ? LEGACY_RESTLESS_PATH
+    : RESTLESS_LOG_PATH;
+const RESTLESS_WRITE_PATH = RESTLESS_LOG_PATH;
 
 const HEARTBEAT_LOG_START = '<!-- heartbeat-log-start -->';
 const HEARTBEAT_LOG_END = '<!-- heartbeat-log-end -->';
@@ -45,10 +52,21 @@ export async function chatWithAgent(
   }
 }
 
+const DEFAULT_LOG_SCAFFOLD =
+  '# RESTLESS Heartbeat Log\n\n' +
+  'Append-only log of the agent\'s heartbeat ticks. See `docs/RESTLESS.md` for\n' +
+  'the protocol. Trimmed to the most recent 50 entries.\n\n' +
+  `${HEARTBEAT_LOG_START}\n${HEARTBEAT_LOG_END}\n`;
+
 function appendHeartbeatLog(entries: string[]) {
   if (entries.length === 0) return;
-  const content = readFileSafe(RESTLESS_PATH);
-  if (!content.includes(HEARTBEAT_LOG_START)) return; // don't corrupt missing markers
+  // Read from whichever log exists (legacy or canonical), but always WRITE
+  // to the canonical data/ location.
+  let content = readFileSafe(RESTLESS_PATH);
+  if (!content.includes(HEARTBEAT_LOG_START)) {
+    // Bootstrap the scaffold on first write.
+    content = DEFAULT_LOG_SCAFFOLD;
+  }
   const before = content.split(HEARTBEAT_LOG_START)[0];
   const after = content.split(HEARTBEAT_LOG_END)[1] ?? '';
   const existing = content
@@ -65,7 +83,8 @@ function appendHeartbeatLog(entries: string[]) {
     '\n' +
     HEARTBEAT_LOG_END +
     after;
-  fs.writeFileSync(RESTLESS_PATH, rebuilt);
+  fs.mkdirSync(path.dirname(RESTLESS_WRITE_PATH), { recursive: true });
+  fs.writeFileSync(RESTLESS_WRITE_PATH, rebuilt);
 }
 
 function parseTokens(text: string, tag: string): string[] {

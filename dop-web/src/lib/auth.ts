@@ -5,10 +5,7 @@
 
 import crypto from 'crypto';
 import fs from 'fs';
-import path from 'path';
-
-const DATA_DIR = path.join(process.cwd(), 'data');
-const API_KEY_FILE = path.join(DATA_DIR, '.dop-api-key');
+import { DATA_ROOT as DATA_DIR, API_KEY_FILE } from './paths';
 
 let _cachedKey: string | null = null;
 

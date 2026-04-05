@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { WORKSPACE_DIR as CANONICAL_WORKSPACE_DIR } from './paths';
 
-export const WORKSPACE_DIR = path.join(process.cwd(), 'data', 'workspace');
+export const WORKSPACE_DIR = CANONICAL_WORKSPACE_DIR;
 
 if (!fs.existsSync(WORKSPACE_DIR)) fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 

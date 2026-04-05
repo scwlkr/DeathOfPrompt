@@ -2,12 +2,17 @@ import fs from 'fs';
 import path from 'path';
 import { prisma } from './db';
 import { logInfo, logError } from './logger';
+import {
+  WEB_ROOT,
+  AGENTS_DIR,
+  MEMORY_DIR,
+  MEMORY_INDEX_FILE,
+  TOPICS_DIR,
+} from './paths';
 
-const ROOT_DIR = process.cwd();
-const AGENTS_DIR = path.join(ROOT_DIR, 'data', 'agents');
-const MEMORY_DIR = path.join(ROOT_DIR, 'data', 'memory');
-const MEMORY_INDEX_FILE = path.join(MEMORY_DIR, 'index.json');
-const TOPICS_DIR = path.join(MEMORY_DIR, 'topics');
+// `topic.sourcePath` in the index is stored as a dop-web-relative path
+// (e.g. "data/memory/topics/foo.md") so keep ROOT_DIR = WEB_ROOT for join.
+const ROOT_DIR = WEB_ROOT;
 
 // Initialize directories
 [AGENTS_DIR, MEMORY_DIR, TOPICS_DIR].forEach((dir) => {

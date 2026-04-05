@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { LOGS_DIR } from './paths';
 
 export const logInfo = (event: string, data: any) => {
   writeLog('INFO', event, data);
@@ -19,13 +20,12 @@ function writeLog(level: string, event: string, data: any) {
     };
     
     // Ensure logs directory exists
-    const logsDir = path.join(process.cwd(), 'data', 'logs');
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
+    if (!fs.existsSync(LOGS_DIR)) {
+      fs.mkdirSync(LOGS_DIR, { recursive: true });
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const logPath = path.join(logsDir, `dop-${today}.jsonl`);
+    const logPath = path.join(LOGS_DIR, `dop-${today}.jsonl`);
     
     fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
   } catch (err) {

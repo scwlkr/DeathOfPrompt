@@ -18,10 +18,10 @@
 // EDIT_FILE is preferred (surgical). WRITE_FILE is the nuclear option.
 import fs from 'fs';
 import path from 'path';
+import { REPO_ROOT as CANONICAL_REPO_ROOT } from './paths';
 
 // dop-web/ is cwd at runtime; repo root is one level up.
-const WEB_ROOT = process.cwd();
-export const REPO_ROOT = path.resolve(WEB_ROOT, '..');
+export const REPO_ROOT = CANONICAL_REPO_ROOT;
 
 // Directories we refuse to touch, ever. Single-segment entries match at any
 // depth; slashed entries match as path prefixes from the repo root.
@@ -156,7 +156,6 @@ export function buildCodeIndex(): string {
     'dop-web/.env.example',
     'dop-web/prisma/schema.prisma',
     'bin',
-    'AMBITION.md',
   ];
   const lines: string[] = [];
   for (const rel of include) {
