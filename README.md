@@ -192,39 +192,39 @@ Open a chat with your bot and send `/pair <code>`. That adds your chat to the al
 | `/heartbeat` | Force a heartbeat tick now and show the result |
 | `/model` | List installed Ollama models (✓ marks current) |
 | `/model <n\|name>` | Switch this chat to a different model (persists across restarts) |
+| `/restart` | Restart the pod (~15-30s downtime) — auto-invoked after agent self-edits |
 | `/podStatus` | Show per-process alive/dead state of the pod |
-| `/podStop` | Tear down the whole pod remotely (kills this daemon too — needs the keeper to restart) |
-| `/podStart` | (hint only — see the keeper; can't start the pod from inside it) |
+| `/podStop` | Tear down the whole pod remotely (kills this daemon too — no way back without running `dop pod` locally) |
 | *(any other text)* | Converse with the agent |
+
+> **Why camelCase?** Telegram commands only accept `[A-Za-z0-9_]` and stop at the first whitespace or dash, so `/pod-start` gets parsed as `/pod` and loses the rest. camelCase keeps each command as a single token.
 
 Per-chat model selections are stored in `dop-web/data/.telegram-models.json`. The default model comes from `DOP_MODEL` in `.env`.
 
 ---
 
-## 🛡️ Remote pod control — `dop keeper`
+## 🔄 Restart flow
 
-`dop pod stop` / `dop pod` need *something* alive to start the pod after it's been torn down. The **keeper** is a tiny always-on supervisor that runs **outside** the pod — its only job is to start, stop, and status-check the pod from Telegram. Run it once from a persistent location (nohup, launchd, tmux) so it survives `dop pod stop`.
+When the agent self-edits code that needs a restart to take effect (cron schedules, new commands, daemon behavior), it can request a restart automatically by emitting `[[RESTART_POD]]` alongside its edit markers. You can also trigger a restart manually with `/restart` in Telegram.
+
+**How it works:**
+
+1. Daemon sends a "🔄 Restarting…" message.
+2. Daemon spawns `bin/respawn.js` detached, then exits.
+3. Respawn helper waits 3s, runs `dop pod stop`, runs `dop pod`, polls `http://localhost:3000` for up to 60s.
+4. Outcome appended to `dop-web/data/logs/respawn.log` with timestamps.
+
+Typical downtime: **10-20s warm, up to ~30s if Next has to recompile.** If the pod doesn't come back within 60s, check `respawn.log` and `pod-respawn.log` to see what broke.
+
+The `[[RESTART_POD]]` marker is only honored when at least one `EDIT_FILE`/`WRITE_FILE` succeeded in the same turn, so a failed edit won't trigger a pointless restart loop.
+
+You can also run `bin/respawn.js` directly:
 
 ```bash
-node bin/dop.js keeper        # foreground
-nohup node bin/dop.js keeper > keeper.log 2>&1 &   # detached
+node bin/respawn.js --dry-run          # show what would happen
+node bin/respawn.js                     # restart now
+node bin/respawn.js --delay=5 --timeout=90   # custom timing
 ```
-
-On startup it prints its own 6-digit pairing code (separate from the daemon's) and stores state in `dop-web/data/.keeper-pairing-code` + `.keeper-allowlist.json`.
-
-### Keeper commands (paired chats only)
-
-| Command | Action |
-|---|---|
-| `/keepPair <code>` | Pair this chat with the keeper (only command unpaired chats can use) |
-| `/keepUnpair` | Disconnect this chat from the keeper |
-| `/podStart` | Run `dop pod` detached — brings the pod back up |
-| `/podStop` | Run `dop pod stop` — tears the pod down |
-| `/podStatus` | Run `dop pod status` — shows alive/dead state |
-
-> **Why camelCase?** Telegram commands only accept `[A-Za-z0-9_]` and stop at the first whitespace or dash, so `/pod-start` gets parsed as `/pod` and loses the rest. camelCase keeps each command as a single token.
-
-> ⚠️ **Shared bot token:** the keeper and the daemon poll the same `TELEGRAM_TOKEN`. When the pod is up, route pod commands through the daemon's `/pod` command; when the pod is down, the keeper has the token to itself. For dual-up operation, give the keeper a separate bot token.
 
 ---
 
@@ -237,12 +237,13 @@ The agent can read and edit its own source code via three markers in its replies
 | `[[READ_FILE: path]]` | Single-line. On the Telegram path, a 1-round reflex feeds the file contents back automatically. |
 | `[[EDIT_FILE: path]]` | Block with `<old>…</old><new>…</new>`. `old` must match exactly once. |
 | `[[WRITE_FILE: path]]` | Block — overwrites the whole file. |
+| `[[RESTART_POD]]` | Single line. Requests a pod restart after a successful edit (see **Restart flow** above). |
 
 Just talk to the agent in natural language:
 
-> "Change the restless heartbeat from hourly to every 30 minutes."
+> "Change the restless heartbeat from hourly to every 30 minutes and restart so it takes effect."
 
-After edits apply, run `dop pod stop && dop pod` to load the changes. See `docs/SELF_MOD_TEST_PROMPTS.md` for tested prompts, verify/revert steps, and documented failure modes.
+If the agent emits `[[RESTART_POD]]`, the pod auto-restarts. If not, run `/restart` in Telegram or `dop pod stop && dop pod` locally. See `docs/SELF_MOD_TEST_PROMPTS.md` for tested prompts, verify/revert steps, and documented failure modes.
 
 ---
 
@@ -274,8 +275,9 @@ node bin/dop.js pod          # start ollama + web + daemon
 node bin/dop.js pod stop     # tear down the whole pod
 node bin/dop.js pod status   # per-process alive/dead state
 node bin/dop.js pair         # print current Telegram pairing code
-node bin/dop.js keeper       # run the always-on pod supervisor (standalone bot, runs OUTSIDE the pod)
 node bin/dop.js dashboard    # web UI only (legacy)
+node bin/respawn.js          # restart the pod (stop + start + health-check)
+node bin/respawn.js --dry-run  # show what respawn would do without doing it
 node bin/dop.js completion   # generate zsh/bash completion script
 ```
 

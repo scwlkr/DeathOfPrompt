@@ -8,6 +8,7 @@ import cron from 'node-cron';
 import ollama from 'ollama';
 import { chatWithAgent, checkCronTasks, runHeartbeat } from './src/lib/dop';
 import { readAmbition } from './src/lib/ambition';
+import { triggerPodRestart } from './src/lib/restart';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '';
 const HEARTBEAT_CRON = process.env.HEARTBEAT_CRON || '0 * * * *'; // hourly by default
@@ -170,7 +171,7 @@ if (TELEGRAM_TOKEN) {
       clearPairingAttempts(chatId);
       bot?.sendMessage(
         chatId,
-        '✅ *Paired.* Death of Prompt is now listening to this chat.\n\nCommands:\n/status — show current ambitions\n/heartbeat — force a heartbeat tick\n/model — list or switch the Ollama model\n/podStop — tear down the pod (this daemon included)\n/podStatus — pod process status\n/unpair — disconnect this chat',
+        '✅ *Paired.* Death of Prompt is now listening to this chat.\n\nCommands:\n/status — show current ambitions\n/heartbeat — force a heartbeat tick\n/model — list or switch the Ollama model\n/restart — restart the pod (auto-invoked after self-edits)\n/podStop — tear down the pod (this daemon included)\n/podStatus — pod process status\n/unpair — disconnect this chat',
         { parse_mode: 'Markdown' }
       );
       console.log(`✅ Paired new chat id=${chatId} (total paired: ${allowlist.size})`);
@@ -251,7 +252,7 @@ if (TELEGRAM_TOKEN) {
     saveChatId(chatId);
     bot?.sendMessage(
       chatId,
-      '💀 *Death of Prompt* is listening.\n\nYou are subscribed to proactive alerts.\n\nCommands:\n/status — show current ambitions & last heartbeat\n/heartbeat — force a heartbeat tick now\n/model — list or switch the Ollama model\n/podStop — tear down the pod (this daemon included)\n/podStatus — pod process status\n/unpair — disconnect this chat',
+      '💀 *Death of Prompt* is listening.\n\nYou are subscribed to proactive alerts.\n\nCommands:\n/status — show current ambitions & last heartbeat\n/heartbeat — force a heartbeat tick now\n/model — list or switch the Ollama model\n/restart — restart the pod (auto-invoked after self-edits)\n/podStop — tear down the pod (this daemon included)\n/podStatus — pod process status\n/unpair — disconnect this chat',
       { parse_mode: 'Markdown' }
     );
   });
@@ -313,6 +314,20 @@ if (TELEGRAM_TOKEN) {
         parse_mode: 'Markdown',
       });
     });
+  });
+
+  // /restart — manual pod restart. Spawns the detached respawn helper,
+  // which waits 3s, runs `dop pod stop`, then `dop pod`, then health-checks
+  // for up to 60s. Outcome logged to dop-web/data/logs/respawn.log.
+  // Also auto-invoked by the engine when the agent emits [[RESTART_POD]]
+  // alongside a successful self-edit.
+  bot.onText(/^\/restart\b/i, (msg) => {
+    if (!isPaired(msg.chat.id)) return sendPairingPrompt(msg.chat.id);
+    bot?.sendMessage(
+      msg.chat.id,
+      '🔄 Restarting pod. Expect ~15-30s of downtime. I\'ll be back.',
+    );
+    triggerPodRestart();
   });
 
   bot.onText(/^\/podStart\b/i, (msg) => {

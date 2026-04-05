@@ -9,6 +9,7 @@ import {
   stripSelfEditMarkers,
   SelfEditResult,
 } from './self-edit';
+import { triggerPodRestart, wantsRestart, stripRestartMarker } from './restart';
 import { logInfo } from './logger';
 import { streamText, generateText } from 'ai';
 import { createOllama } from 'ai-sdk-ollama';
@@ -66,8 +67,16 @@ To overwrite a whole file, emit:
 [[/WRITE_FILE]]
 
 Paths under .git, node_modules, .next, data/, or database files are blocked.
-Changes take effect after the process restarts (the user runs \`dop pod stop && dop pod\`).
-After editing, tell the user plainly what you changed and that a restart is required.
+
+Changes take effect only after the pod restarts. If your edits need to be
+active immediately (changing cron schedules, timers, daemon behavior, new
+commands, etc.), emit [[RESTART_POD]] on its own line AFTER your edit
+markers. The pod will self-restart (~15-30s downtime) and the user will see
+a notification. Only include [[RESTART_POD]] when a restart is actually
+needed — cosmetic edits, doc changes, or workspace files do NOT require it.
+
+After editing, tell the user plainly what you changed and whether a
+restart is being triggered.
 
 REPO INDEX (paths you can read or edit):
 ${codeIndex}
@@ -120,12 +129,30 @@ function handleMarkers(
   if (files.length) cleaned = stripFileSaveMarkers(cleaned);
   if (mutating.length || /\[\[READ_FILE:/.test(cleaned)) cleaned = stripSelfEditMarkers(cleaned);
 
+  // Restart: only honored if the agent also applied at least one successful
+  // edit this turn — prevents accidental restart loops.
+  const restartRequested = wantsRestart(cleaned);
+  if (restartRequested) cleaned = stripRestartMarker(cleaned);
+  const anyEditOk = results.some((r) => r.ok);
+  const willRestart = restartRequested && anyEditOk;
+
+  if (willRestart) {
+    logInfo('pod_restart_triggered', { sessionId, editCount: results.length });
+    triggerPodRestart();
+  } else if (restartRequested && !anyEditOk) {
+    logInfo('pod_restart_skipped_no_edits', { sessionId });
+  }
+
   const editSummary =
     results.length === 0
       ? ''
       : '\n\n---\n**Self-edits applied:**\n' +
         results.map((r) => `- ${r.ok ? '✅' : '❌'} ${r.message}`).join('\n') +
-        (results.some((r) => r.ok) ? '\n\n_Restart with `dop pod stop && dop pod` to load changes._' : '');
+        (willRestart
+          ? '\n\n🔄 _Pod restart triggered — expect ~15-30s of downtime. Check `dop-web/data/logs/respawn.log` if it doesn\'t come back._'
+          : anyEditOk
+            ? '\n\n_Restart with `dop pod stop && dop pod` to load changes._'
+            : '');
 
   return { cleaned: cleaned + editSummary, editSummary };
 }

@@ -35,9 +35,14 @@ dop pod              # start full stack: ollama (if down) + next dev + telegram 
 dop pod stop         # tear down the whole pod (SIGTERM process groups, then SIGKILL sweep)
 dop pod status       # show alive/dead state of each pod process
 dop pair             # print the current telegram pairing code
-dop keeper           # run the always-on pod supervisor (standalone Telegram bot, runs OUTSIDE the pod)
 dop dashboard        # web UI only (no daemon, no ollama) — legacy convenience
 dop completion       # generate zsh/bash completion script
+```
+
+```bash
+# Pod restart helper (standalone, not under the dop CLI):
+node bin/respawn.js              # wait → pod stop → pod start → health-check
+node bin/respawn.js --dry-run    # preview without acting
 ```
 
 `dop pod` streams prefixed logs (`[ollama] [web] [daemon]`) to stdout and mirrors them to `dop-web/data/logs/pod-*.log`. PID state lives at `dop-web/data/.dop-pod.json`. Ctrl-C in the foreground pod triggers the same teardown as `dop pod stop`. Ollama is only started if :11434 isn't already up, and only killed on stop if the pod launched it.
@@ -98,25 +103,21 @@ Owns two cron workers:
 | `/status` | prints AMBITION.md | markdown-fenced |
 | `/heartbeat` | forces `runHeartbeat()` | shows NOTIFY/TASK/REFLECT tokens |
 | `/model` / `/model <n\|name>` | list or switch Ollama model | persists in `.telegram-models.json` |
+| `/restart` | calls `triggerPodRestart()` | detached respawn helper + daemon exits |
 | `/podStatus` | spawns `dop pod status` | returns per-process state |
-| `/podStop` | spawns detached `dop pod stop` | kills this daemon — requires keeper to restart |
-| `/podStart` | hint only | points at the keeper; can't start the pod from inside it |
+| `/podStop` | spawns detached `dop pod stop` | kills this daemon — manual local restart required |
 
-### Keeper (`bin/keeper.js`)
+Telegram commands only accept `[A-Za-z0-9_]` and terminate at whitespace or dashes — hence camelCase. All regexes use the `/i` flag so `/podstop` also matches. `bin/keeper.js` exists but is deprecated — the token-collision caveat (one `TELEGRAM_TOKEN`, two `polling: true` clients = 409 conflict) made it unusable. Use the restart flow instead.
 
-Standalone Telegram bot that runs **outside** the pod, so it survives `dop pod stop` and can bring the pod back up. Started via `dop keeper`. Has its own pairing code (`dop-web/data/.keeper-pairing-code`) and allowlist (`dop-web/data/.keeper-allowlist.json`) — separate from the daemon's. Reads `TELEGRAM_TOKEN` from `dop-web/.env` and requires `node-telegram-bot-api` from `dop-web/node_modules/`.
+### Pod restart flow (`bin/respawn.js` + `src/lib/restart.ts`)
 
-| Command | Action |
-|---|---|
-| `/keepPair <code>` | pair this chat with the keeper |
-| `/keepUnpair` | disconnect from the keeper |
-| `/podStart` | spawns `node bin/dop.js pod` detached |
-| `/podStop` | runs `dop pod stop` |
-| `/podStatus` | runs `dop pod status` |
+Detached helper that performs a full pod restart: wait N seconds → `dop pod stop` → `dop pod` (detached, stdio to `data/logs/pod-respawn.log`) → poll `http://localhost:3000` for up to M seconds → append outcome to `data/logs/respawn.log`. Two-stage health check (processes alive → web server responding) so it doesn't false-positive on a crashing Next boot.
 
-Telegram commands only accept `[A-Za-z0-9_]` and terminate at whitespace or dashes — hence camelCase. `/pod-start` would be parsed as `/pod` with `-start` discarded. All regexes use the `/i` flag so `/podstop` also matches.
+Invoked from two places:
+1. **Manual:** `/restart` Telegram command → `triggerPodRestart()` → spawns respawn detached → daemon exits via `dop pod stop` SIGTERM.
+2. **Automatic:** when the engine's `handleMarkers()` detects `[[RESTART_POD]]` in the agent's reply AND at least one `EDIT_FILE`/`WRITE_FILE` succeeded in the same turn. The `anyEditOk` gate prevents restart loops from failed edits.
 
-**Token collision caveat:** keeper and daemon share one `TELEGRAM_TOKEN` and both use `polling: true`. When both are up, Telegram round-robins `getUpdates` between them. The intended deployment is: pod up → route commands through daemon's `/pod`; pod down → keeper has the token to itself naturally. For simultaneous operation, give the keeper its own bot token.
+Flags: `--delay=N` (default 3s, breather before `pod stop`), `--timeout=N` (default 60s, health-check window), `--dry-run`, `--help`.
 
 ### Self-modification (`src/lib/self-edit.ts`)
 
