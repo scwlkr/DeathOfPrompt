@@ -72,3 +72,9 @@
 {"timestamp":"2026-04-04T23:19:02.042Z","level":"INFO","event":"task_toggled","data":{"raw":"Example: \"Remind me in 10 minutes to grab coffee.\"","done":true}}
 {"timestamp":"2026-04-04T23:19:06.424Z","level":"INFO","event":"task_toggled","data":{"raw":"Example: \"Remind me in 10 minutes to grab coffee.\"","done":false}}
 {"timestamp":"2026-04-04T23:20:16.046Z","level":"INFO","event":"task_appended_manual","data":{"task":"send me a message |recur:daily@18:00"}}
+{"timestamp":"2026-04-04T23:20:36.884Z","level":"INFO","event":"task_toggled","data":{"raw":"send me a message |recur:daily@18:00","done":true}}
+{"timestamp":"2026-04-04T23:20:38.012Z","level":"INFO","event":"task_toggled","data":{"raw":"send me a message |recur:daily@18:00","done":false}}
+{"timestamp":"2026-04-04T23:20:43.270Z","level":"INFO","event":"task_toggled","data":{"raw":"send me a message |recur:daily@18:00","done":true}}
+{"timestamp":"2026-04-04T23:20:44.302Z","level":"INFO","event":"task_toggled","data":{"raw":"send me a message |recur:daily@18:00","done":false}}
+{"timestamp":"2026-04-04T23:21:56.372Z","level":"INFO","event":"task_toggled","data":{"raw":"send me a message |recur:daily@18:00","done":true}}
+{"timestamp":"2026-04-04T23:21:57.821Z","level":"INFO","event":"task_toggled","data":{"raw":"send me a message |recur:daily@18:00","done":false}}
