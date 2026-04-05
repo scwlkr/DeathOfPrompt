@@ -8,3 +8,4 @@ To add a task, simply create a list item below. The system's CRON job checks thi
 ## Tasks
 - [ ] Example: "Remind me in 10 minutes to grab coffee."
 - [ ] send me a message |recur:daily@18:25
+- [ ] tg-c4vong pick up laundry

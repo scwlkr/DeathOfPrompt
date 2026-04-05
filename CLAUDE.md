@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Death of Prompt (DOP) is a local-first prototype for replacing prompt-engineering with ongoing conversation with a persistent agent. It runs against a local Ollama instance and ships a web UI plus an optional Telegram daemon. See `DOP_MVP_PLAN.md` and `DOP_IDEAS_FROM_CODEX.md` for the design intent.
+Death of Prompt (DOP) is a local-first prototype for replacing prompt-engineering with ongoing conversation with a persistent agent. It runs against a local Ollama instance and ships a web UI plus an optional Telegram daemon that share one brain. See `DOP_MVP_PLAN.md` and `DOP_IDEAS_FROM_CODEX.md` for the design intent.
 
 ## Repository Layout
 
@@ -24,13 +24,13 @@ npm run start    # next start (after build)
 npm run lint     # next lint (eslint-config-next)
 npx vitest       # run all tests (vitest, node environment)
 npx vitest run src/lib/memory-retrieval.test.ts   # single test file
-npx prisma migrate dev       # apply/create migrations against dev.db
+npx prisma db push           # sync schema to SQLite
 npx prisma generate          # regenerate prisma client after schema edits
 ```
 
 From the repo root you can also launch the UI via `node bin/dop.js dashboard` (spawns `npm run dev` in `dop-web/` and opens the browser).
 
-The optional Telegram + cron daemon is `dop-web/daemon.ts` (run with `npx tsx daemon.ts`). It needs `TELEGRAM_TOKEN` set and a running Ollama; it also schedules the every-30-minute AMBITION.md check.
+The optional Telegram + cron daemon is `dop-web/daemon.ts` (run with `npx tsx daemon.ts`). It needs `TELEGRAM_TOKEN` set and a running Ollama; it schedules the every-30-minute AMBITION reminder scan and the hourly RESTLESS heartbeat.
 
 ## Environment & External Dependencies
 
@@ -40,18 +40,18 @@ The optional Telegram + cron daemon is `dop-web/daemon.ts` (run with `npx tsx da
 
 ## Architecture
 
-### Two parallel chat implementations — be careful which one you touch
+### Unified chat engine
 
-There are currently **two** chat code paths that both talk to Ollama. They are not unified yet:
+Both surfaces — the web UI *and* the Telegram bot — share one engine (`src/lib/dop-engine.ts`). That engine owns session upsert, 3-layer memory retrieval, system-prompt construction, marker handling, and transcript persistence. There are two entry points:
 
-1. **Web chat (primary)** — `dop-web/src/app/api/chat/route.ts` → `src/lib/dop-engine.ts::processChat` → `streamText` from the `ai` SDK with `ai-sdk-ollama`. Persists to SQLite via Prisma (`ChatSession`, `TranscriptEntry`). Returns a UI message stream consumed by `@ai-sdk/react`'s `useChat` on `src/app/page.tsx`.
-2. **Telegram / cron chat (legacy, file-backed)** — `dop-web/src/lib/dop.ts::chatWithAgent` uses the `ollama` package directly, reads `SOUL.md`/`AMBITION.md`/`memory/index.md` from the **repo root** (via `path.join(process.cwd(), '..')`), and appends transcripts to `memory/transcripts/*.txt`. It also parses `[[TASK: ...]]` tokens out of replies and appends them to `AMBITION.md`. Only `daemon.ts` uses this path.
+1. **`processChat(sessionId, userMessage, model)`** — streaming. Used by `src/app/api/chat/route.ts` for the web UI. Streams tokens via `streamText` from the `ai` SDK (`ai-sdk-ollama` provider) and returns a UI message stream consumed by `@ai-sdk/react`'s `useChat` on `src/app/page.tsx`.
+2. **`processChatSync(sessionId, userMessage, agentId, model)`** — non-streaming. Used by the Telegram daemon via `src/lib/dop.ts::chatWithAgent`. Calls `generateText` and returns a plain string.
 
-When fixing web chat bugs, edit `dop-engine.ts` + `memory-retrieval.ts`. Don't "fix" `dop.ts` to match — it's a separate surface used by the Telegram daemon.
+Both entry points upsert a `ChatSession`, persist user + assistant `TranscriptEntry` rows to SQLite, run the same `buildSystemPrompt(context)` and `handleMarkers(sessionId, text)` helpers, and write task / file markers via `appendTask()` and `saveWorkspaceFile()`. Telegram chats use `telegram-<chatId>` as their sessionId so transcripts accumulate per-user.
 
-### 3-layer memory system (web path)
+### 3-layer memory system
 
-`src/lib/memory-retrieval.ts::retrieveContext` assembles context from three layers for each chat turn:
+`src/lib/memory-retrieval.ts::retrieveContext` assembles context from three layers for each chat turn (both web and Telegram):
 
 1. **SOUL** — `dop-web/data/agents/<agentId>/SOUL.md` (always loaded if present). Written by the onboarding flow (`src/app/api/onboarding/route.ts`) on first run.
 2. **Topic files** — `dop-web/data/memory/topics/*.md`, selected by naive keyword match against `dop-web/data/memory/index.json` (tags + title contains query term). Use `saveTopic()` to write both the markdown file and the index entry.
@@ -59,9 +59,20 @@ When fixing web chat bugs, edit `dop-engine.ts` + `memory-retrieval.ts`. Don't "
 
 All retrievals go through `logInfo('context_retrieved', …)` in `src/lib/logger.ts`, which appends JSONL to `dop-web/data/logs/dop-<date>.jsonl`. The UI's "View System Logs" modal (`src/app/page.tsx`) polls `/api/logs` every 3s.
 
+### AMBITION task list
+
+`src/lib/ambition.ts` owns `AMBITION.md` (currently at repo root, shared by both surfaces). Tasks support optional `|when:<ISO>` and `|recur:<spec>` suffixes. The `/api/ambition` route exposes GET/POST/PATCH/DELETE for the UI's task panel. `dueTasks()` returns tasks whose `|when:` falls inside the last 30 minutes — used by the deterministic cron check.
+
+### Telegram + cron daemon (`src/lib/dop.ts`)
+
+Runs out of `daemon.ts` via `tsx`. Delegates all user chat to `processChatSync`, so Telegram chats live in SQLite alongside web chats. Owns two cron workers:
+
+- **AMBITION cron** (`*/30 * * * *` default) — `checkCronTasks()` calls `ambition.dueTasks()` deterministically (no LLM) and sends due items to the subscribed Telegram chat.
+- **RESTLESS heartbeat** (`0 * * * *` default) — `runHeartbeat()` wakes the agent between user messages. Reads the canonical SOUL (`dop-web/data/agents/default/SOUL.md`) + current AMBITION + last 10 heartbeat log entries, and asks the LLM to emit `[[NOTIFY]]` / `[[TASK]]` / `[[REFLECT]]` / `[[REST]]` tokens. Logs each tick to `RESTLESS.md` at the repo root (capped at 50 entries). New tasks are appended via the shared `appendTask()`.
+
 ### Prisma / database
 
-Schema: `dop-web/prisma/schema.prisma` — SQLite, three models: `ChatSession`, `TranscriptEntry`, `MemoryIndexEntry` (currently unused by code; topic index lives in `data/memory/index.json` on disk instead). Prisma client is a singleton (`src/lib/db.ts`) to avoid connection exhaustion in Next.js dev hot-reload.
+Schema: `dop-web/prisma/schema.prisma` — SQLite, two models: `ChatSession` and `TranscriptEntry`. Prisma client is a singleton (`src/lib/db.ts`) to avoid connection exhaustion in Next.js dev hot-reload. The topic index lives in `data/memory/index.json` on disk, not in the DB.
 
 ### Session flow (web)
 
@@ -69,5 +80,6 @@ Schema: `dop-web/prisma/schema.prisma` — SQLite, three models: `ChatSession`, 
 
 ## Other Notes
 
-- Agent name/identity, ambitions, and memory index at repo root (`SOUL.md`, `AMBITION.md`, `memory/`) are the **legacy/Telegram** stores. The web path uses `dop-web/data/` instead. These will eventually be unified; until then, know which you're touching.
 - `package.json` at the repo root declares `"type": "commonjs"`; `dop-web/` is an ES module / Next.js project. Don't copy tooling config between them.
+- Repo-root `SOUL.md` and `memory/` are leftover stubs from the pre-unification Telegram surface. Nothing reads them anymore — the canonical SOUL is `dop-web/data/agents/default/SOUL.md` and the canonical memory lives in `dop-web/data/memory/`. Safe to delete when convenient. `RESTLESS.md` at the repo root is still live — it's the heartbeat log.
+- `AMBITION.md` currently lives at the repo root and is shared by both surfaces via `ambition.ts`. If you ever move it, update only the path inside `ambition.ts`.

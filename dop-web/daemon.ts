@@ -4,6 +4,7 @@ import path from 'path';
 import TelegramBot from 'node-telegram-bot-api';
 import cron from 'node-cron';
 import { chatWithAgent, checkCronTasks, runHeartbeat } from './src/lib/dop';
+import { readAmbition } from './src/lib/ambition';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '';
 const HEARTBEAT_CRON = process.env.HEARTBEAT_CRON || '0 * * * *'; // hourly by default
@@ -49,10 +50,7 @@ if (TELEGRAM_TOKEN) {
   });
 
   bot.onText(/^\/status\b/, (msg) => {
-    const root = path.join(process.cwd(), '..');
-    const ambition = fs.existsSync(path.join(root, 'AMBITION.md'))
-      ? fs.readFileSync(path.join(root, 'AMBITION.md'), 'utf-8')
-      : '(no AMBITION.md)';
+    const ambition = readAmbition() || '(no AMBITION.md)';
     bot?.sendMessage(msg.chat.id, '```\n' + ambition.slice(0, 3500) + '\n```', {
       parse_mode: 'Markdown',
     });
@@ -79,7 +77,7 @@ if (TELEGRAM_TOKEN) {
     if (!msg.text || msg.text.startsWith('/')) return;
 
     bot?.sendChatAction(chatId, 'typing');
-    const reply = await chatWithAgent(msg.text);
+    const reply = await chatWithAgent(msg.text, chatId);
     bot?.sendMessage(chatId, reply);
   });
 } else {

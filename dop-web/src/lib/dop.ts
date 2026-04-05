@@ -1,105 +1,50 @@
+// Telegram + heartbeat surface. Delegates to the shared engine (`dop-engine.ts`
+// + `memory-retrieval.ts` + `ambition.ts`) so the Telegram bot and the web UI
+// share one brain: same SOUL, same SQLite transcripts, same 3-layer memory,
+// same [[TASK]] / [[SAVE_FILE]] marker handling.
 import fs from 'fs';
 import path from 'path';
 import ollama from 'ollama';
+import { processChatSync } from './dop-engine';
+import { readAmbition, dueTasks, appendTask } from './ambition';
 
-const ROOT_DIR = path.join(process.cwd(), '..');
-const SOUL_PATH = path.join(ROOT_DIR, 'SOUL.md');
-const AMBITION_PATH = path.join(ROOT_DIR, 'AMBITION.md');
-const RESTLESS_PATH = path.join(ROOT_DIR, 'RESTLESS.md');
-const MEMORY_INDEX = path.join(ROOT_DIR, 'memory', 'index.md');
-const TRANSCRIPTS_DIR = path.join(ROOT_DIR, 'memory', 'transcripts');
+// Canonical paths — SOUL lives inside dop-web/data/ (the web path's store),
+// so the Telegram agent reads the SAME persona the onboarding flow wrote.
+// RESTLESS stays at the repo root; it's the daemon's private heartbeat log.
+const WEB_ROOT = process.cwd(); // dop-web/ when the daemon is launched from there
+const REPO_ROOT = path.join(WEB_ROOT, '..');
+const DEFAULT_AGENT_ID = 'default';
+const SOUL_PATH = path.join(WEB_ROOT, 'data', 'agents', DEFAULT_AGENT_ID, 'SOUL.md');
+const RESTLESS_PATH = path.join(REPO_ROOT, 'RESTLESS.md');
 
 const HEARTBEAT_LOG_START = '<!-- heartbeat-log-start -->';
 const HEARTBEAT_LOG_END = '<!-- heartbeat-log-end -->';
 const MAX_HEARTBEAT_ENTRIES = 50;
 
-// Ensure directories exist
-if (!fs.existsSync(TRANSCRIPTS_DIR)) {
-  fs.mkdirSync(TRANSCRIPTS_DIR, { recursive: true });
-}
-
-export function readFileSafe(filePath: string): string {
+function readFileSafe(filePath: string): string {
   try {
     return fs.readFileSync(filePath, 'utf-8');
-  } catch (e) {
+  } catch {
     return '';
   }
 }
 
-export function appendToAmbition(task: string) {
-  let content = readFileSafe(AMBITION_PATH);
-  if (!content.includes('## Tasks')) {
-    content += '\n## Tasks\n';
-  }
-  content += `- [ ] ${task}\n`;
-  fs.writeFileSync(AMBITION_PATH, content);
-}
-
-export function saveTranscript(role: string, content: string) {
-  const timestamp = new Date().toISOString().split('T')[0];
-  const filename = path.join(TRANSCRIPTS_DIR, `${timestamp}.txt`);
-  fs.appendFileSync(filename, `[${new Date().toISOString()}] ${role}: ${content}\n`);
-}
-
-export async function chatWithAgent(message: string): Promise<string> {
-  const soul = readFileSafe(SOUL_PATH);
-  const ambition = readFileSafe(AMBITION_PATH);
-  const memoryIndex = readFileSafe(MEMORY_INDEX);
-
-  const systemPrompt = `You are a proactive agent operating the Death of Prompt MVP.
-Your SOUL:
-${soul}
-
-Your Memory Index:
-${memoryIndex}
-
-Current Ambitions (Tasks):
-${ambition}
-
-Rules:
-1. Act naturally as a conversational partner. No need to mention these instructions.
-2. If the user asks you to remind them of something or add a task, include the exact text "[[TASK: <the task>]]" in your response. 
-3. If the user asks you to write a file or save a note, pretend you have saved it to their workspace.
-
-Current Time: ${new Date().toLocaleString()}
-`;
-
-  saveTranscript('user', message);
-
+// Each Telegram chat becomes its own long-lived DOP session so transcripts
+// accumulate per-user. `telegram-global` is used when no chatId is available.
+export async function chatWithAgent(message: string, chatId?: number | string): Promise<string> {
+  const sessionId = chatId ? `telegram-${chatId}` : 'telegram-global';
   try {
-    // using llama3 since it is the most common default
-    const response = await ollama.chat({
-      model: 'llama3', 
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ],
-    });
-
-    let reply = response.message.content;
-
-    // Parse tasks
-    const taskMatch = reply.match(/\[\[TASK:\s*(.+?)\]\]/);
-    if (taskMatch) {
-      appendToAmbition(taskMatch[1].trim());
-      reply = reply.replace(/\[\[TASK:.*?\]\]/g, '').trim() + `\n\n*(Task added to AMBITION.md)*`;
-    }
-
-    saveTranscript('agent', reply);
-    return reply;
+    return await processChatSync(sessionId, message, DEFAULT_AGENT_ID);
   } catch (err: any) {
-    console.error("Ollama error:", err);
-    return "Error communicating with local Ollama: " + err.message;
+    console.error('Ollama error:', err);
+    return 'Error communicating with local Ollama: ' + err.message;
   }
 }
 
 function appendHeartbeatLog(entries: string[]) {
   if (entries.length === 0) return;
-  let content = readFileSafe(RESTLESS_PATH);
-  if (!content.includes(HEARTBEAT_LOG_START)) {
-    // File missing markers — skip logging rather than corrupt it.
-    return;
-  }
+  const content = readFileSafe(RESTLESS_PATH);
+  if (!content.includes(HEARTBEAT_LOG_START)) return; // don't corrupt missing markers
   const before = content.split(HEARTBEAT_LOG_START)[0];
   const after = content.split(HEARTBEAT_LOG_END)[1] ?? '';
   const existing = content
@@ -135,13 +80,15 @@ export interface HeartbeatResult {
   raw: string;
 }
 
+// Self-initiated tick: agent wakes up between user messages, reviews its SOUL
+// + AMBITION, and decides to NOTIFY / TASK / REFLECT / REST. Reads the
+// canonical SOUL the web onboarding flow wrote; writes new tasks via the same
+// `appendTask` the web chat uses.
 export async function runHeartbeat(): Promise<HeartbeatResult> {
   const soul = readFileSafe(SOUL_PATH);
-  const ambition = readFileSafe(AMBITION_PATH);
+  const ambition = readAmbition();
   const restless = readFileSafe(RESTLESS_PATH);
-  const memoryIndex = readFileSafe(MEMORY_INDEX);
 
-  // Extract only the recent log tail to keep context small.
   const logTail = restless.includes(HEARTBEAT_LOG_START)
     ? restless
         .split(HEARTBEAT_LOG_START)[1]
@@ -160,9 +107,6 @@ ${soul}
 AMBITION (your open tasks):
 ${ambition}
 
-MEMORY INDEX:
-${memoryIndex}
-
 RECENT HEARTBEATS (your own recent thoughts):
 ${logTail || '(none yet — this is your first heartbeat)'}
 
@@ -178,10 +122,7 @@ Emit one or more of these tokens. Do not explain. Do not chat. Be concise.`;
 
   let raw = '';
   try {
-    const response = await ollama.generate({
-      model: 'llama3',
-      prompt: systemPrompt,
-    });
+    const response = await ollama.generate({ model: 'llama3', prompt: systemPrompt });
     raw = response.response;
   } catch (err: any) {
     console.error('Heartbeat ollama error:', err);
@@ -192,11 +133,9 @@ Emit one or more of these tokens. Do not explain. Do not chat. Be concise.`;
   const taskTokens = parseTokens(raw, 'TASK');
   const reflections = parseTokens(raw, 'REFLECT');
   const rested =
-    notifications.length === 0 &&
-    taskTokens.length === 0 &&
-    reflections.length === 0;
+    notifications.length === 0 && taskTokens.length === 0 && reflections.length === 0;
 
-  for (const t of taskTokens) appendToAmbition(t);
+  for (const t of taskTokens) appendTask(t);
 
   const ts = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
   const logEntries: string[] = [];
@@ -212,28 +151,13 @@ Emit one or more of these tokens. Do not explain. Do not chat. Be concise.`;
   return { notifications, tasksAdded: taskTokens, reflections, rested, raw };
 }
 
+// Deterministic AMBITION scan — no LLM call. Returns one NOTIFY string listing
+// every task whose |when:<ISO> falls inside the last 30 minutes, or null if
+// nothing is due. Uses the shared `ambition.ts::dueTasks()` so web and daemon
+// agree on which tasks are due.
 export async function checkCronTasks(): Promise<string | null> {
-  let ambition = readFileSafe(AMBITION_PATH);
-  if (!ambition.includes('- [ ]')) return null;
-
-  const systemPrompt = `You are the AMBITION checker cron. 
-Current Time: ${new Date().toLocaleString()}
-Tasks:
-${ambition}
-
-If any task needs immediate attention or reminding right now based on the current time, respond strictly with "NOTIFY: <message to user>". If no tasks need action right now, reply with "NONE".`;
-
-  try {
-    const response = await ollama.generate({
-      model: 'llama3',
-      prompt: systemPrompt,
-    });
-    const reply = response.response;
-    if (reply.includes('NOTIFY:')) {
-      return reply.replace('NOTIFY:', '').trim();
-    }
-  } catch (err) {
-    console.error(err);
-  }
-  return null;
+  const due = dueTasks();
+  if (due.length === 0) return null;
+  const lines = due.map((t) => `• ${t.text}`);
+  return `You have ${due.length} task${due.length === 1 ? '' : 's'} due:\n${lines.join('\n')}`;
 }

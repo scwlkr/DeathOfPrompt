@@ -52,7 +52,7 @@ Everything runs locally against [Ollama](https://ollama.com). Nothing leaves you
 | **Telegram bot integration** | ✅ **new** |
 | System logs modal (JSONL, live-polled) | ✅ working |
 
-> ⚠️ There are currently **two chat code paths** — the web UI (`src/lib/dop-engine.ts`, Prisma-backed) and the Telegram daemon (`src/lib/dop.ts`, file-backed at the repo root). They are not yet unified. See `CLAUDE.md` for the full architecture.
+The web UI and the Telegram daemon share one engine (`src/lib/dop-engine.ts`) — same SOUL, same SQLite sessions, same 3-layer memory, same `[[TASK]]` / `[[SAVE_FILE]]` marker handling. See `CLAUDE.md` for the full architecture.
 
 ---
 
@@ -84,7 +84,7 @@ cp .env.example .env
 # (edit .env — at minimum, leave DATABASE_URL; add TELEGRAM_TOKEN if using the bot)
 
 # 3. Initialize the database
-npx prisma migrate dev
+npx prisma db push
 npx prisma generate
 
 # 4. Launch the web UI
@@ -186,14 +186,14 @@ Open a chat with your bot and send `/start`. You're now subscribed — the daemo
 ├── SOUL.md        ← agent identity
 ├── AMBITION.md    ← open tasks / goals
 ├── RESTLESS.md    ← heartbeat config + log
-├── memory/        ← legacy file-backed memory (used by daemon)
+├── memory/        ← unused pre-unification stub (safe to delete)
 └── dop-web/       ← the actual Next.js app
     ├── daemon.ts  ← Telegram bot + cron workers
     ├── prisma/    ← SQLite schema
     ├── data/      ← web-path memory + logs + sqlite db
     └── src/
         ├── app/   ← Next.js routes (/api/chat, /api/onboarding, /api/logs, …)
-        └── lib/   ← dop-engine, memory-retrieval, logger, dop (legacy)
+        └── lib/   ← dop-engine (shared brain), memory-retrieval, logger, dop (Telegram/heartbeat)
 ```
 
 ---
@@ -208,7 +208,7 @@ npm run build           # production build
 npm run lint            # eslint
 npx vitest              # run tests
 npx vitest run src/lib/memory-retrieval.test.ts   # single test
-npx prisma migrate dev  # apply/create migrations
+npx prisma db push      # sync schema to SQLite
 npx prisma generate     # regen client after schema edit
 npx tsx daemon.ts       # Telegram + heartbeat daemon
 ```
