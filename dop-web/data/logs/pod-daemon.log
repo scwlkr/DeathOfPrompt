@@ -198,3 +198,13 @@ Heartbeat ollama error: ResponseError: model 'llama3' not found
 }
 💤 heartbeat: rest
 error: [polling_error] {"code":"EFATAL","message":"EFATAL: Error: read ECONNRESET"}
+💀 Starting Telegram Bot...
+
+🔑 Telegram pairing code: 563672
+   In Telegram, send:  /pair 563672
+   Paired chats: 1
+
+⏰ Starting AMBITION cron (*/30 * * * *)
+💓 Starting RESTLESS heartbeat (0 * * * *)
+☠️  DOP Daemon is alive. The agent is restless.
+🔧 chat 8318055728 → model=gpt-oss:20b

@@ -263,6 +263,11 @@ yargs(hideBin(process.argv))
     }
   )
   .command('pair', 'Show the current Telegram pairing code', () => {}, () => printPairingCode())
+  .command('keeper', 'Run the always-on pod supervisor (standalone Telegram bot, runs OUTSIDE the pod)', () => {}, () => {
+    const keeperPath = path.join(__dirname, 'keeper.js');
+    const k = spawn('node', [keeperPath], { stdio: 'inherit' });
+    k.on('close', (code) => process.exit(code));
+  })
   .demandCommand(1, 'Please provide a valid command.')
   .help()
   .parse();
